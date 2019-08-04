@@ -184,26 +184,32 @@ int main(int argc, const char** argv)
     std::cout << std::endl;
   };
 
-  test("$e = $registry.create_entity;\n"
-    "$e.set('Transform', {x:0.0, y:0.0, radians:0.0})\n"
-    "$e.set('Velocity', {x:10.0, y:10.0})\n"
-  );
-  test("10.times{\n"
-    "  $registry.each_entity('Transform', 'Velocity'){ |e|\n"
-    "    puts \"Entity: #{e.id}\"\n"
-    "    transform = e.get('Transform')\n"
-    "    velocity = e.get('Velocity')\n"
-    "    transform[:x] += velocity[:x]\n"
-    "    transform[:y] += velocity[:y]\n"
-    "    e.set('Transform', transform)\n"
-    "  }\n"
-    "}\n"
-  );
-  test(
-    "puts %Q{Velocity: #{$e.get('Velocity').inspect}}\n"
-    "puts %Q{Transform: #{$e.get('Transform').inspect}}\n"
-    "p $registry.all_components"
-  );
+  test(R"MRUBY(
+    $entity = $registry.create_entity
+    $entity.set 'Transform', {x: 0.0, y: 0.0, radians: 0.0}
+    $entity.set 'Velocity', {x: 10.0, y: 10.0}
+  )MRUBY");
+
+  test(R"MRUBY(
+    10.times do
+      #$registry.entities($registry.component_id('Transform'), $registry.component_id('Velocity')) do |e_id|
+      $registry.each_entity('Transform', 'Velocity') do |e_id|
+        e = $registry.entity e_id
+        puts "Entity: #{e.id}"
+        transform = e.get('Transform')
+        velocity = e.get('Velocity')
+        transform[:x] += velocity[:x]
+        transform[:y] += velocity[:y]
+        e.set('Transform', transform)
+      end
+    end
+  )MRUBY");
+
+  test(R"MRUBY(
+    puts %Q{Velocity: #{ $entity.get('Velocity').inspect }}
+    puts %Q{Transform: #{ $entity.get('Transform').inspect }}
+    p $registry.all_components
+  )MRUBY");
   
   if(! code.empty())
     registry.eval(code);

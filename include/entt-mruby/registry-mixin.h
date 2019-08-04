@@ -5,6 +5,7 @@
 
 #include <iterator>
 #include <mruby/array.h>
+#include <mruby/proc.h>
 
 namespace MRuby
 {
@@ -82,12 +83,16 @@ class Registry
     Entity.new self, create
   end
 
+  def component_id id
+    id === Fixnum ? id : component(id)
+  end
+
   def get_component entity_id, component
-    get entity_id, self.component(component)
+    get entity_id, component_id(component)
   end
 
   def set_component entity_id, component, *args
-    set entity_id, self.component(component), *args
+    set entity_id, component_id(component), *args
   end
 
   def entity id
@@ -95,12 +100,8 @@ class Registry
   end
 
   def each_entity *args, &block
-    args.map! {|id|
-      id.is_a?(Fixnum) ? id : component(id)
-    }
-    entities(*args).each {|id|
-      block.call entity(id)
-    }
+    args = args.map {|id| component_id id }
+    entities(*args, &block)
   end
 end
 )MRUBY";
@@ -191,9 +192,16 @@ struct RegistryMixin
     Derived* ptr = p->get();
     const auto& max_static_components = Derived::max_static_components;
 
+    mrb_value block = mrb_nil_value();
     mrb_value* args;
     mrb_int size;
-    if(mrb_get_args(mrb, "*", &args, &size) == 0)
+    if(mrb_get_args(mrb, "*&", &args, &size, &block) == 0)
+    {
+      return mrb_nil_value();
+    }
+
+    RProc* proc = mrb_proc_ptr(block);
+    if(!proc)
     {
       return mrb_nil_value();
     }
@@ -223,7 +231,7 @@ struct RegistryMixin
     }
 
     auto view = ptr->runtime_view(components.cbegin(), components.cend());
-    auto result = mrb_ary_new(mrb);
+    // auto result = mrb_ary_new(mrb);
 
     if(dynamic.empty())
     {
@@ -231,7 +239,8 @@ struct RegistryMixin
       for(const auto entity : view)
       {
         const auto id = std::underlying_type_t< entt::entity >(entity);
-        mrb_ary_push(mrb, result, mrb_fixnum_value(id));
+        mrb_yield(mrb, block, mrb_fixnum_value(id));
+        // mrb_ary_push(mrb, result, mrb_fixnum_value(id));
       }
     }
     else
@@ -250,11 +259,12 @@ struct RegistryMixin
         );
 
         if(match)
-          mrb_ary_push(mrb, result, mrb_fixnum_value(id));
+          mrb_yield(mrb, block, mrb_fixnum_value(id));
+          // mrb_ary_push(mrb, result, mrb_fixnum_value(id));
       }
     }
 
-    return result;
+    return self; // result;
   }
   
 
