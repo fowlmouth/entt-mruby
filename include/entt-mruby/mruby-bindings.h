@@ -67,26 +67,62 @@ namespace MRuby
       this->self = self;
     }
 
-    HashReader& operator() (const char* symbol, std::string& output)
+    template< typename T >
+    HashReader& operator() (const char* symbol, T& value)
     {
-      mrb_value val = mrb_hash_get(state, self, mrb_symbol_value(mrb_intern_cstr(state, symbol)));
-      if(mrb_string_p(val))
-      {
-        output = mrb_string_value_cstr(state, &val);
-      }
+      read_hash(*this, symbol, value);
       return *this;
     }
 
-    HashReader& operator() (const char* symbol, float& output)
-    {
-      mrb_value val = mrb_hash_get(state, self, mrb_symbol_value(mrb_intern_cstr(state, symbol)));
-      if(mrb_float_p(val))
-      {
-        output = mrb_to_flo(state, val);
-      }
-      return *this;
-    }
+    // HashReader& operator() (const char* symbol, std::string& output)
+    // {
+    //   mrb_value val = mrb_hash_get(state, self, mrb_symbol_value(mrb_intern_cstr(state, symbol)));
+    //   if(mrb_string_p(val))
+    //   {
+    //     output = mrb_string_value_cstr(state, &val);
+    //   }
+    //   return *this;
+    // }
+
+    // HashReader& operator() (const char* symbol, float& output)
+    // {
+
+    //   mrb_value val = mrb_hash_get(state, self, mrb_symbol_value(mrb_intern_cstr(state, symbol)));
+    //   if(mrb_float_p(val))
+    //   {
+    //     output = mrb_to_flo(state, val);
+    //   }
+    //   return *this;
+    // }
   };
+
+  bool read_hash(HashReader& reader, const char* symbol, float& value)
+  {
+    mrb_value val = mrb_hash_get(
+      reader.state,
+      reader.self,
+      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
+    if(mrb_float_p(val))
+    {
+      value = mrb_to_flo(reader.state, val);
+      return true;
+    }
+    return false;
+  }
+
+  bool read_hash(HashReader& reader, const char* symbol, std::string& value)
+  {
+    mrb_value val = mrb_hash_get(
+      reader.state,
+      reader.self,
+      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
+    if(mrb_string_p(val))
+    {
+      value = mrb_string_value_cstr(reader.state, &val);
+      return true;
+    }
+    return false;
+  }
 
   struct Module
   {
