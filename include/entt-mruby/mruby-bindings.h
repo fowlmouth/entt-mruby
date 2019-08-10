@@ -12,6 +12,8 @@
 
 #include "demangle-type-name.h"
 
+#include <vector>
+
 namespace MRuby
 {
   struct Object
@@ -104,6 +106,16 @@ namespace MRuby
     return false;
   }
 
+  bool read_hash(HashReader& reader, const char* symbol, bool& value)
+  {
+    mrb_value val = mrb_hash_get(
+      reader.state,
+      reader.self,
+      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
+    value = mrb_bool(val);
+    return true;
+  }
+
   bool read_hash(HashReader& reader, const char* symbol, std::string& value)
   {
     mrb_value val = mrb_hash_get(
@@ -113,6 +125,25 @@ namespace MRuby
     if(mrb_string_p(val))
     {
       value = mrb_string_value_cstr(reader.state, &val);
+      return true;
+    }
+    return false;
+  }
+
+  bool read_hash(HashReader& reader, const char* symbol, std::vector< mrb_value >& value)
+  {
+    mrb_value val = mrb_hash_get(
+      reader.state,
+      reader.self,
+      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
+    if(mrb_array_p(val))
+    {
+      mrb_int len = ARY_LEN(mrb_ary_ptr(val));
+      value.resize(len);
+      for(int i = 0; i < len; ++i)
+      {
+        value[i] = mrb_ary_entry(val, i);
+      }
       return true;
     }
     return false;
