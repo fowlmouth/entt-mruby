@@ -48,7 +48,6 @@ namespace MRuby
       self = mrb_hash_new(state);
     }
 
-
     HashBuilder& operator() (const char* symbol, mrb_value value)
     {
       mrb_hash_set(state, self,
@@ -57,6 +56,23 @@ namespace MRuby
       return *this;
     }
   };
+
+  template< typename T >
+  bool convert(mrb_state* state, mrb_value input, T& output)
+  {
+    return false;
+  }
+
+
+  template< typename T >
+  bool read_hash(mrb_state* state, mrb_value hash, const char* symbol, T& output)
+  {
+    mrb_value value = mrb_hash_get(
+      state,
+      hash,
+      mrb_symbol_value(mrb_intern_cstr(state, symbol)));
+    return convert(state, value, output);
+  }
 
   struct HashReader
   {
@@ -70,84 +86,71 @@ namespace MRuby
     }
 
     template< typename T >
-    HashReader& operator() (const char* symbol, T& value)
+    HashReader& operator() (const char* symbol, T& output)
     {
-      read_hash(*this, symbol, value);
+      read_hash(state, self, symbol, output);
       return *this;
     }
 
   };
 
-  bool read_hash(HashReader& reader, const char* symbol, float& value)
+
+  template<>
+  bool convert<float>(mrb_state* state, mrb_value input, float& output)
   {
-    mrb_value val = mrb_hash_get(
-      reader.state,
-      reader.self,
-      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
-    if(mrb_float_p(val))
+    if(mrb_float_p(input))
     {
-      value = mrb_to_flo(reader.state, val);
+      output = mrb_to_flo(state, input);
       return true;
     }
     return false;
   }
 
-  bool read_hash(HashReader& reader, const char* symbol, mrb_int& value)
+  template<>
+  bool convert<mrb_int>(mrb_state* state, mrb_value input, mrb_int& output)
   {
-    mrb_value val = mrb_hash_get(
-      reader.state,
-      reader.self,
-      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
-    if(mrb_fixnum_p(val))
+    if(mrb_fixnum_p(input))
     {
-      value = mrb_fixnum(val);
+      output = mrb_fixnum(input);
       return true;
     }
     return false;
   }
 
-  bool read_hash(HashReader& reader, const char* symbol, bool& value)
+  template<>
+  bool convert<bool>(mrb_state* state, mrb_value input, bool& output)
   {
-    mrb_value val = mrb_hash_get(
-      reader.state,
-      reader.self,
-      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
-    value = mrb_bool(val);
+    output = mrb_bool(input);
     return true;
   }
 
-  bool read_hash(HashReader& reader, const char* symbol, std::string& value)
+  template<>
+  bool convert<std::string>(mrb_state* state, mrb_value input, std::string& output)
   {
-    mrb_value val = mrb_hash_get(
-      reader.state,
-      reader.self,
-      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
-    if(mrb_string_p(val))
+    if(mrb_string_p(input))
     {
-      value = mrb_string_value_cstr(reader.state, &val);
+      output = mrb_string_value_cstr(state, &input);
       return true;
     }
     return false;
   }
 
-  bool read_hash(HashReader& reader, const char* symbol, std::vector< mrb_value >& value)
+  template<>
+  bool convert< std::vector<mrb_value> >(mrb_state* state, mrb_value input, std::vector< mrb_value >& output)
   {
-    mrb_value val = mrb_hash_get(
-      reader.state,
-      reader.self,
-      mrb_symbol_value(mrb_intern_cstr(reader.state, symbol)));
-    if(mrb_array_p(val))
+    if(mrb_array_p(input))
     {
-      mrb_int len = ARY_LEN(mrb_ary_ptr(val));
-      value.resize(len);
+      mrb_int len = ARY_LEN(mrb_ary_ptr(input));
+      output.resize(len);
       for(int i = 0; i < len; ++i)
       {
-        value[i] = mrb_ary_entry(val, i);
+        output[i] = mrb_ary_entry(input, i);
       }
       return true;
     }
     return false;
   }
+
 
   struct Module
   {
