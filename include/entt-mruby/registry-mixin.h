@@ -429,7 +429,7 @@ struct RegistryMixin
   template< typename Component >
   void mrb_init_component_name(mrb_state* state, RClass* ns)
   {
-    std::string name = cpp_type_name_to_mrb< Component >();
+    std::string name = cpp_type_name_to_mrb(::MRuby::type_name< Component >());
     auto id = entt::type_index<Component>::value();
     mrb_define_const(state, ns, name.c_str(), mrb_fixnum_value(id));
     derived().mrb_dynamic_components[ name ] = _mrb_component_type_info<Component>();
