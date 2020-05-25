@@ -42,8 +42,8 @@ opts.each {|k,v|
 abort if fail
 
 cmd = "#{opts[:cc]} \
-  -g -std=c++1z \
-  -I #{opts[:entt]}/src \
+  -g -std=c++2a \
+  -I #{opts[:entt]} \
   #{opts[:I].map{|dir| "-I#{dir}"}.join(' ') if opts[:I]} \
   -I ../include \
   #{opts[:cfiles]} \

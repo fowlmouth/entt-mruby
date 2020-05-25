@@ -10,14 +10,13 @@ struct DynamicComponents
   std::unordered_map< mrb_int, mrb_value > components;
 };
 
+} // ::MRuby
 
-template<>
-struct ComponentInterface< DynamicComponents >
-: DefaultComponentInterface< DynamicComponents >
-{
-  static mrb_value get(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type)
+MRUBY_COMPONENT_INTERFACE_BEGIN(MRuby::DynamicComponents)
+
+  MRUBY_COMPONENT_GET
   {
-    auto& dyn = registry.get_or_assign< DynamicComponents >(entity);
+    auto& dyn = registry.get_or_emplace< DynamicComponents >(entity);
     const auto iter = dyn.components.find(type);
     if(iter == dyn.components.cend())
       return mrb_nil_value();
@@ -25,23 +24,23 @@ struct ComponentInterface< DynamicComponents >
     return iter->second;
   }
 
-  static mrb_value set(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type, mrb_int argc, mrb_value* arg)
+  MRUBY_COMPONENT_SET
   {
-    auto& dyn = registry.get_or_assign< DynamicComponents >(entity);
+    auto& dyn = registry.get_or_emplace< DynamicComponents >(entity);
     mrb_gc_unregister(state, dyn.components[type]);
     if(argc == 0)
       dyn.components[type] = mrb_nil_value();
     else if(argc == 1)
-      dyn.components[type] = arg[0];
+      dyn.components[type] = argv[0];
     else
-      dyn.components[type] = mrb_ary_new_from_values(state, argc, arg);
+      dyn.components[type] = mrb_ary_new_from_values(state, argc, argv);
     mrb_gc_register(state, dyn.components[type]);
     return dyn.components[type];
   }
 
-  static mrb_value has(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type)
+  MRUBY_COMPONENT_HAS
   {
-    auto& dyn = registry.get_or_assign< DynamicComponents >(entity);
+    auto& dyn = registry.get_or_emplace< DynamicComponents >(entity);
     const auto iter = dyn.components.find(type);
     if(iter == dyn.components.cend())
       return mrb_false_value();
@@ -49,7 +48,7 @@ struct ComponentInterface< DynamicComponents >
     return mrb_true_value();
   }
 
-  static mrb_value remove(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type)
+  MRUBY_COMPONENT_REMOVE
   {
     if(auto dyn = registry.try_get< DynamicComponents >(entity))
     {
@@ -63,6 +62,6 @@ struct ComponentInterface< DynamicComponents >
     }
     return mrb_false_value();
   }
-};
 
-} // ::MRuby
+MRUBY_COMPONENT_INTERFACE_END
+

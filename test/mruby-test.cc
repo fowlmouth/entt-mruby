@@ -39,9 +39,9 @@ template<>
 struct MRuby::ComponentInterface< Transform >
 : MRuby::DefaultComponentInterface< Transform >
 {
-  static mrb_value get(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type)
+  static mrb_value get(mrb_state* state, entt::registry& registry, entt::entity entity, entt::id_type type)
   {
-    auto& transform = registry.get_or_assign< Transform >(entity);
+    auto& transform = registry.get_or_emplace< Transform >(entity);
 
     mrb_value hash = mrb_hash_new(state);
 
@@ -58,7 +58,7 @@ struct MRuby::ComponentInterface< Transform >
     return hash;
   }
 
-  static mrb_value set(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type, mrb_int argc, mrb_value* arg)
+  static mrb_value set(mrb_state* state, entt::registry& registry, entt::entity entity, entt::id_type type, mrb_int argc, mrb_value* arg)
   {
     if(!argc || ! mrb_hash_p(arg[0]))
       return mrb_nil_value();
@@ -74,52 +74,12 @@ struct MRuby::ComponentInterface< Transform >
     new_transform.y = mrb_to_flo(state, y);
     new_transform.radians = mrb_to_flo(state, radians);
 
-    registry.assign_or_replace< Transform >(entity, new_transform);
+    registry.emplace_or_replace< Transform >(entity, new_transform);
 
     return arg[0];
   }
 };
 
-
-// template<>
-// struct MRuby::ComponentInterface< Velocity >
-// : MRuby::DefaultComponentInterface< Velocity >
-// {
-//   static mrb_value get(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type)
-//   {
-//     auto& velocity = registry.get_or_assign< Velocity >(entity);
-
-//     mrb_value hash = mrb_hash_new(state);
-
-//     mrb_hash_set(state, hash,
-//       mrb_symbol_value(mrb_intern_lit(state, "x")),
-//       mrb_float_value(state, velocity.x));
-//     mrb_hash_set(state, hash,
-//       mrb_symbol_value(mrb_intern_lit(state, "y")),
-//       mrb_float_value(state, velocity.y));
-
-//     return hash;
-//   }
-
-//   static mrb_value set(mrb_state* state, entt::registry& registry, entt::entity entity, entt::registry::component_type type, mrb_value arg)
-//   {
-//     if(! mrb_hash_p(arg))
-//       return mrb_nil_value();
-    
-//     Velocity new_velocity;
-//     mrb_value x,y;
-
-//     x = mrb_hash_get(state, arg, mrb_symbol_value(mrb_intern_lit(state, "x")));
-//     y = mrb_hash_get(state, arg, mrb_symbol_value(mrb_intern_lit(state, "y")));
-
-//     new_velocity.x = mrb_to_flo(state, x);
-//     new_velocity.y = mrb_to_flo(state, y);
-
-//     registry.assign_or_replace< Velocity >(entity, new_velocity);
-
-//     return arg;
-//   }
-// };
 
 struct TestRegistry : entt::registry, MRuby::RegistryMixin< TestRegistry >
 {
@@ -164,10 +124,12 @@ int main(int argc, const char** argv)
   TestRegistry registry;
 
   auto e1 = registry.create();
-  auto& tr = registry.assign< Transform >(e1);
-  tr.x = 2;
-  tr.y = 2;
-  tr.radians = M_PI;
+  {
+    auto& tr = registry.emplace< Transform >(e1);
+    tr.x = 2;
+    tr.y = 2;
+    tr.radians = M_PI;
+  }
 
   auto test = [&](const std::string& str)
   {

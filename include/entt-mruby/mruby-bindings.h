@@ -37,6 +37,12 @@ namespace MRuby
     }
   };
 
+  template< typename T >
+  bool to_mrb(mrb_state* state, const T& input, mrb_value& output)
+  {
+    return false;
+  }
+
   struct HashBuilder
   {
     mrb_state* state;
@@ -48,14 +54,37 @@ namespace MRuby
       self = mrb_hash_new(state);
     }
 
-    HashBuilder& operator() (const char* symbol, mrb_value value)
+    template< typename T >
+    HashBuilder& operator() (const char* symbol, const T& input)
     {
-      mrb_hash_set(state, self,
-        mrb_symbol_value(mrb_intern_cstr(state, symbol)),
-        value);
+      mrb_value value;
+      if(to_mrb(state, input, value))
+      {
+        mrb_hash_set(state, self,
+          mrb_symbol_value(mrb_intern_cstr(state, symbol)),
+          value);
+      }
       return *this;
     }
   };
+
+  template<>
+  bool to_mrb< float >(mrb_state* state, const float& input, mrb_value& output)
+  {
+    output = mrb_float_value(state, input);
+    return true;
+  }
+
+  template<>
+  bool to_mrb< mrb_int >(mrb_state* state, const mrb_int& input, mrb_value& output)
+  {
+    output = mrb_fixnum_value(input);
+    return true;
+  }
+
+
+
+
 
   template< typename T >
   bool convert(mrb_state* state, mrb_value input, T& output)
