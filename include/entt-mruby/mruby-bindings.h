@@ -82,12 +82,17 @@ namespace MRuby
     return true;
   }
 
-
+  template<>
+  bool to_mrb< std::string >(mrb_state* state, const std::string& string, mrb_value& output)
+  {
+    output = mrb_str_new_cstr(state, string.c_str());
+    return true;
+  }
 
 
 
   template< typename T >
-  bool convert(mrb_state* state, mrb_value input, T& output)
+  bool from_mrb(mrb_state* state, mrb_value input, T& output)
   {
     return false;
   }
@@ -100,7 +105,7 @@ namespace MRuby
       state,
       hash,
       mrb_symbol_value(mrb_intern_cstr(state, symbol)));
-    return convert(state, value, output);
+    return from_mrb(state, value, output);
   }
 
   struct HashReader
@@ -109,34 +114,57 @@ namespace MRuby
     mrb_value self;
 
     HashReader(mrb_state* state, mrb_value self)
-    : state(state)
+    : state(state), self(self)
     {
-      this->self = self;
     }
 
     template< typename T >
     HashReader& operator() (const char* symbol, T& output)
     {
-      read_hash(state, self, symbol, output);
+      read_hash(symbol, output);
       return *this;
+    }
+
+    template< typename T >
+    bool read_hash(const char* symbol, T& output)
+    {
+      mrb_value value = mrb_hash_get(
+        state,
+        self,
+        mrb_symbol_value(mrb_intern_cstr(state, symbol)));
+      return from_mrb(state, value, output);
+    }
+
+    template< typename T >
+    T read_default(const char* symbol, const T& default_value)
+    {
+      T output;
+      if(read_hash(symbol, output))
+        return std::move(output);
+      return default_value;
     }
 
   };
 
 
   template<>
-  bool convert<float>(mrb_state* state, mrb_value input, float& output)
+  bool from_mrb<float>(mrb_state* state, mrb_value input, float& output)
   {
     if(mrb_float_p(input))
     {
-      output = mrb_to_flo(state, input);
+      output = mrb_float(input);
+      return true;
+    }
+    if(mrb_fixnum_p(input))
+    {
+      output = (float)mrb_fixnum(input);
       return true;
     }
     return false;
   }
 
   template<>
-  bool convert<mrb_int>(mrb_state* state, mrb_value input, mrb_int& output)
+  bool from_mrb<mrb_int>(mrb_state* state, mrb_value input, mrb_int& output)
   {
     if(mrb_fixnum_p(input))
     {
@@ -147,14 +175,14 @@ namespace MRuby
   }
 
   template<>
-  bool convert<bool>(mrb_state* state, mrb_value input, bool& output)
+  bool from_mrb<bool>(mrb_state* state, mrb_value input, bool& output)
   {
     output = mrb_bool(input);
     return true;
   }
 
   template<>
-  bool convert<std::string>(mrb_state* state, mrb_value input, std::string& output)
+  bool from_mrb<std::string>(mrb_state* state, mrb_value input, std::string& output)
   {
     if(mrb_string_p(input))
     {
@@ -165,7 +193,7 @@ namespace MRuby
   }
 
   template<>
-  bool convert< std::vector<mrb_value> >(mrb_state* state, mrb_value input, std::vector< mrb_value >& output)
+  bool from_mrb< std::vector<mrb_value> >(mrb_state* state, mrb_value input, std::vector< mrb_value >& output)
   {
     if(mrb_array_p(input))
     {
