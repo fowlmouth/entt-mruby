@@ -12,6 +12,8 @@
 
 #include "demangle-type-name.h"
 
+#include <iostream>
+
 #include <vector>
 
 namespace MRuby
@@ -244,6 +246,7 @@ namespace MRuby
 
     static void free(mrb_state* mrb, void* ptr)
     {
+      std::cout << "Freeing default-bound ptr" << std::endl;
       if(ptr)
       {
         ((T*)ptr)->T::~T();

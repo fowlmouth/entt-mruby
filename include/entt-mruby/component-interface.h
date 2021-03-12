@@ -23,7 +23,7 @@ template
 >
 void mrb_init_function_map(ComponentFunctionMap& map, entt::registry& registry)
 {
-  ((map[ entt::type_index< Components >::value() ] = {
+  ((map[ entt::type_seq< Components >::value() ] = {
     ComponentInterface< Components >::has,
     ComponentInterface< Components >::get,
     ComponentInterface< Components >::remove,

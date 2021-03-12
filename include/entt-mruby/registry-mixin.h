@@ -149,8 +149,8 @@ struct RegistryMixin
   static _mrb_component_type_info_t _mrb_component_type_info()
   {
     return {
-      entt::type_index<Component>::value(),
-      entt::type_info<Component>::id(),
+      entt::type_seq<Component>::value(),
+      entt::type_id<Component>().hash(),
       false,
       cpp_type_name_to_mrb(::MRuby::type_name<Component>())
     };
@@ -164,8 +164,11 @@ struct RegistryMixin
   static Derived* mrb_value_to_registry(mrb_state* mrb, mrb_value value)
   {
     auto p = DATA_CHECK_GET_PTR(mrb, value, &::MRuby::DefaultClassBinder< MRubyRegistryPtr >::mrb_type, MRubyRegistryPtr);
-    if(!p || !p->get())
+    if(!p)
+    {
+      std::cout << "mrb_value_to_registry data ptr is null" << std::endl;
       return nullptr;
+    }
     return p->get();
   }
 
@@ -205,7 +208,12 @@ struct RegistryMixin
     else
     {
       id = registry->next_dynamic_component_id++;
-      registry->mrb_dynamic_components[ strname ] = {static_cast<entt::id_type>(id), entt::type_info<DynamicComponents>::id(), true, strname};
+      registry->mrb_dynamic_components[ strname ] = {
+        static_cast<entt::id_type>(id),
+        entt::type_id<DynamicComponents>().hash(),
+        true,
+        strname
+      };
     }
     return mrb_fixnum_value(id);
   }
@@ -216,11 +224,16 @@ struct RegistryMixin
   {
     Derived* registry = mrb_value_to_registry(mrb, self);
     if(!registry)
+    {
+      std::cout << "mrb_registry_get_components registry was nil!" << std::endl;
       return mrb_nil_value();
+    }
 
     auto& mrb_dynamic_components = registry->mrb_dynamic_components;
 
     std::size_t num_components = mrb_dynamic_components.size();
+
+    std::cout << "mrb_registry_get_components num_components=" << num_components << std::endl;
 
     mrb_value array[num_components];
     auto iter = mrb_dynamic_components.begin();
@@ -273,7 +286,7 @@ struct RegistryMixin
         {
           if(dynamic.empty())
           {
-            components.push_back(entt::type_index< DynamicComponents >::value());
+            components.push_back(entt::type_seq< DynamicComponents >::value());
           }
 
           dynamic.push_back(type);
@@ -346,7 +359,7 @@ struct RegistryMixin
     auto& iface = registry->mrb_func_map;
     const auto iter = iface.find(
       (type >= Derived::max_static_components)
-        ? entt::type_index< DynamicComponents >::value()
+        ? entt::type_seq< DynamicComponents >::value()
         : type );
     if(iter == iface.cend())
       return false;
@@ -430,7 +443,7 @@ struct RegistryMixin
   void mrb_init_component_name(mrb_state* state, RClass* ns)
   {
     std::string name = cpp_type_name_to_mrb(::MRuby::type_name< Component >());
-    auto id = entt::type_index<Component>::value();
+    auto id = entt::type_seq<Component>::value();
     mrb_define_const(state, ns, name.c_str(), mrb_fixnum_value(id));
     derived().mrb_dynamic_components[ name ] = _mrb_component_type_info<Component>();
   }
@@ -438,6 +451,7 @@ struct RegistryMixin
   template< typename... Components >
   void mrb_init(mrb_state* state)
   {
+    std::cout << "mrb_init< sizeof=" << sizeof...(Components) << std::endl ;
     mrb_init_function_map<MRuby::ComponentInterface, MRuby::DynamicComponents, Components...>(
       derived().mrb_func_map, derived());
 
@@ -458,13 +472,16 @@ struct RegistryMixin
     ;
 
     ((mrb_init_component_name<Components>(state, registry_class)), ...);
-    ((_mrb_entt_type_index_to_id[ entt::type_index<Components>::value() ] = entt::type_info<Components>::id()), ...);
-    _mrb_entt_type_index_to_id[ entt::type_index<DynamicComponents>::value() ] = entt::type_info<DynamicComponents>::id();
+    ((_mrb_entt_type_index_to_id[ entt::type_seq<Components>::value() ] = entt::type_id<Components>().hash()), ...);
+    _mrb_entt_type_index_to_id[ entt::type_seq<DynamicComponents>::value() ] = entt::type_id<DynamicComponents>().hash();
 
     // Create a registry object
     auto registry_obj = registry_class.new_(0,nullptr);
     auto registry_data = (MRubyRegistryPtr*)DATA_PTR(registry_obj);
     registry_data->set(&derived());
+
+    std::cout << //"registry_obj=" << registry_obj << 
+    " registry_data=" << registry_data << std::endl;
 
     // Export it as "$registry" and "@registry"
     mrb_gv_set(state, mrb_intern_lit(state, "$registry"), registry_obj);
